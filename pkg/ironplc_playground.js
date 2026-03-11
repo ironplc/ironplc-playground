@@ -42,15 +42,16 @@ export function init_panic_hook() {
  * The session stores compiled bytecode and a variable buffer that persists
  * across calls to [`step`]. Returns a JSON `StepResult` with `total_scans: 0`.
  * @param {string} source
+ * @param {number} cycle_time_us
  * @returns {string}
  */
-export function load_program(source) {
+export function load_program(source, cycle_time_us) {
     let deferred2_0;
     let deferred2_1;
     try {
         const ptr0 = passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.load_program(ptr0, len0);
+        const ret = wasm.load_program(ptr0, len0, cycle_time_us);
         deferred2_0 = ret[0];
         deferred2_1 = ret[1];
         return getStringFromWasm0(ret[0], ret[1]);
