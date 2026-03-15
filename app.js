@@ -10,6 +10,100 @@ const cyclesDisplay = document.getElementById("cycles-display");
 const status = document.getElementById("status");
 const variablesPanel = document.getElementById("variables-panel");
 const diagnosticsPanel = document.getElementById("diagnostics-panel");
+const examplesSelect = document.getElementById("examples-select");
+
+// --- Example programs ---
+
+const EXAMPLES = [
+  {
+    name: "Counter",
+    code: `PROGRAM main
+  VAR
+    count : INT;
+    doubled : INT;
+  END_VAR
+
+  (* Click Start to begin running. The program
+     runs one scan cycle per interval. Variables
+     keep their values between cycles, so count
+     increases each time. *)
+  count := count + 1;
+  doubled := count * 2;
+END_PROGRAM`,
+  },
+  {
+    name: "Boolean Logic",
+    code: `PROGRAM main
+  VAR
+    sensor_a : BOOL := TRUE;
+    sensor_b : BOOL := FALSE;
+    and_result : BOOL;
+    or_result : BOOL;
+    not_result : BOOL;
+  END_VAR
+
+  and_result := sensor_a AND sensor_b;
+  or_result := sensor_a OR sensor_b;
+  not_result := NOT sensor_a;
+END_PROGRAM`,
+  },
+  {
+    name: "Arithmetic",
+    code: `PROGRAM main
+  VAR
+    a : INT := 10;
+    b : INT := 3;
+    sum : INT;
+    diff : INT;
+    product : INT;
+    quotient : INT;
+    remainder : INT;
+  END_VAR
+
+  sum := a + b;
+  diff := a - b;
+  product := a * b;
+  quotient := a / b;
+  remainder := a MOD b;
+END_PROGRAM`,
+  },
+  {
+    name: "Comparison",
+    code: `PROGRAM main
+  VAR
+    temperature : INT;
+    is_hot : BOOL;
+    is_cold : BOOL;
+    is_moderate : BOOL;
+  END_VAR
+
+  temperature := temperature + 1;
+
+  is_hot := temperature > 30;
+  is_cold := temperature < 10;
+  is_moderate := NOT is_hot AND NOT is_cold;
+END_PROGRAM`,
+  },
+  {
+    name: "Sine Wave",
+    code: `PROGRAM main
+  VAR
+    angle : REAL;
+    wave : REAL;
+    output : INT;
+  END_VAR
+
+  (* Generate a sine wave. In real PLCs this is
+     used for motion profiles, test signal
+     generation, and vibration compensation. *)
+  angle := angle + 0.1;
+  wave := SIN(angle);
+
+  (* Scale to 0-100 range for an analog output *)
+  output := REAL_TO_INT(wave * 50.0 + 50.0);
+END_PROGRAM`,
+  },
+];
 
 // --- State ---
 
@@ -34,7 +128,7 @@ const isEmbed = params.get("embed") === "true";
 
 const STEP_INTERVAL_MS = 100;
 const RENDER_INTERVAL_MS = 500;
-const HISTORY_MAX = 50;
+const HISTORY_WINDOW_MS = 5000;
 let valueHistory = new Map();
 
 // --- uPlot sparkline options ---
@@ -50,7 +144,7 @@ function makeSparkOpts(stepped) {
     cursor: { show: false },
     select: { show: false },
     legend: { show: false },
-    scales: { x: { time: false } },
+    scales: { x: { time: false, range: [0, HISTORY_WINDOW_MS / 1000] } },
     axes: [{ show: false }, { show: false }],
     series: [
       {},
@@ -70,6 +164,31 @@ if (isEmbed) {
   document.body.classList.add("embed");
   intervalInput.disabled = true;
 }
+
+// --- Populate examples dropdown ---
+
+for (const example of EXAMPLES) {
+  const option = document.createElement("option");
+  option.value = example.name;
+  option.textContent = example.name;
+  examplesSelect.appendChild(option);
+}
+
+examplesSelect.addEventListener("change", () => {
+  const selected = EXAMPLES.find(e => e.name === examplesSelect.value);
+  if (!selected) return;
+
+  if (isRunning) {
+    stopExecution();
+    postCommand("reset");
+    status.textContent = "Ready";
+  }
+
+  editor.value = selected.code;
+
+  // Reset the dropdown to show "Examples" label
+  examplesSelect.selectedIndex = 0;
+});
 
 // Pre-load code from URL parameters
 if (params.has("code")) {
@@ -407,6 +526,8 @@ function parseTimeValue(value) {
 }
 
 function accumulateHistory(variables) {
+  const now = performance.now();
+  const cutoff = now - HISTORY_WINDOW_MS;
   for (const v of variables) {
     const numVal = parseNumericValue(v.value, v.type_name);
     if (numVal !== null) {
@@ -415,8 +536,9 @@ function accumulateHistory(variables) {
         hist = [];
         valueHistory.set(v.index, hist);
       }
-      hist.push(numVal);
-      if (hist.length > HISTORY_MAX) {
+      hist.push({ t: now, v: numVal });
+      // Drop entries older than the window
+      while (hist.length > 0 && hist[0].t < cutoff) {
         hist.shift();
       }
     }
@@ -445,14 +567,17 @@ function renderVariables(variables) {
   variablesPanel.innerHTML = html;
 
   // Create uPlot sparklines in the empty cells
+  const now = performance.now();
+  const windowStart = now - HISTORY_WINDOW_MS;
   for (const v of variables) {
     const hist = valueHistory.get(v.index);
     if (hist && hist.length >= 2) {
       const cell = variablesPanel.querySelector(`[data-var-idx="${v.index}"]`);
       if (cell) {
-        const xs = hist.map((_, i) => i);
+        const xs = hist.map(e => (e.t - windowStart) / 1000);
+        const ys = hist.map(e => e.v);
         const opts = v.type_name.toUpperCase() === "BOOL" ? boolSparkOpts : sparkOpts;
-        new uPlot(opts, [xs, [...hist]], cell);
+        new uPlot(opts, [xs, ys], cell);
       }
     }
   }
