@@ -10,16 +10,16 @@
  * { "ok": false, "diagnostics": [{"code": "...", "message": "...", "start": N, "end": N}] }
  * ```
  * @param {string} source
- * @param {string} edition
+ * @param {string} dialect
  * @returns {string}
  */
-export function compile(source, edition) {
+export function compile(source, dialect) {
     let deferred3_0;
     let deferred3_1;
     try {
         const ptr0 = passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(edition, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const ptr1 = passStringToWasm0(dialect, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
         const ret = wasm.compile(ptr0, len0, ptr1, len1);
         deferred3_0 = ret[0];
@@ -46,16 +46,16 @@ export function init_panic_hook() {
  * across calls to [`step`]. Returns a JSON `StepResult` with `total_scans: 0`.
  * @param {string} source
  * @param {number} cycle_time_us
- * @param {string} edition
+ * @param {string} dialect
  * @returns {string}
  */
-export function load_program(source, cycle_time_us, edition) {
+export function load_program(source, cycle_time_us, dialect) {
     let deferred3_0;
     let deferred3_1;
     try {
         const ptr0 = passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(edition, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const ptr1 = passStringToWasm0(dialect, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
         const ret = wasm.load_program(ptr0, len0, cycle_time_us, ptr1, len1);
         deferred3_0 = ret[0];
@@ -117,16 +117,16 @@ export function run(bytecode_base64, scans) {
  * Returns a JSON string with both compilation diagnostics and execution results.
  * @param {string} source
  * @param {number} scans
- * @param {string} edition
+ * @param {string} dialect
  * @returns {string}
  */
-export function run_source(source, scans, edition) {
+export function run_source(source, scans, dialect) {
     let deferred3_0;
     let deferred3_1;
     try {
         const ptr0 = passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(edition, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const ptr1 = passStringToWasm0(dialect, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
         const ret = wasm.run_source(ptr0, len0, scans, ptr1, len1);
         deferred3_0 = ret[0];
