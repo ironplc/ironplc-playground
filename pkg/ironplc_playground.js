@@ -7,8 +7,16 @@
  * ```
  * or on error:
  * ```json
- * { "ok": false, "diagnostics": [{"code": "...", "message": "...", "start": N, "end": N}] }
+ * {
+ *   "ok": false,
+ *   "diagnostics": [{
+ *     "code": "...", "message": "...",
+ *     "start_line": L, "start_column": C,
+ *     "end_line": L, "end_column": C
+ *   }]
+ * }
  * ```
+ * Line and column are 1-based.
  * @param {string} source
  * @param {string} dialect
  * @returns {string}
