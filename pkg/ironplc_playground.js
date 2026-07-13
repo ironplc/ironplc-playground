@@ -42,6 +42,25 @@ export function compile(source, dialect, allows) {
 }
 
 /**
+ * Return the selectable dialects as a JSON array so the UI builds its dialect
+ * picker from the compiler's own [`Dialect`] list. This keeps the picker from
+ * drifting out of sync with the dialects the compiler actually supports.
+ * @returns {string}
+ */
+export function dialects() {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.dialects();
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
  * Install a panic hook that logs to `console.error` with a full stack trace.
  *
  * Called once from JavaScript before using any other exports.

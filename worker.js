@@ -1,6 +1,6 @@
 // Web Worker that loads the WASM module and runs compile/run operations
 // off the main thread so the UI stays responsive.
-import init, { init_panic_hook, compile, run, run_source, load_program, step, reset_session, version, } from "./pkg/ironplc_playground.js";
+import init, { init_panic_hook, compile, run, run_source, load_program, step, reset_session, version, dialects, } from "./pkg/ironplc_playground.js";
 let ready = false;
 function post(msg) {
     self.postMessage(msg);
@@ -9,7 +9,8 @@ init()
     .then(() => {
     init_panic_hook();
     ready = true;
-    post({ type: "ready", version: version() });
+    const dialectOptions = JSON.parse(dialects());
+    post({ type: "ready", version: version(), dialects: dialectOptions });
 })
     .catch((err) => {
     post({ type: "error", error: `WASM init failed: ${err}` });
