@@ -20,11 +20,12 @@
  * @param {string} source
  * @param {string} dialect
  * @param {string} allows
+ * @param {string} libraries
  * @returns {string}
  */
-export function compile(source, dialect, allows) {
-    let deferred4_0;
-    let deferred4_1;
+export function compile(source, dialect, allows, libraries) {
+    let deferred5_0;
+    let deferred5_1;
     try {
         const ptr0 = passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
@@ -32,12 +33,14 @@ export function compile(source, dialect, allows) {
         const len1 = WASM_VECTOR_LEN;
         const ptr2 = passStringToWasm0(allows, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len2 = WASM_VECTOR_LEN;
-        const ret = wasm.compile(ptr0, len0, ptr1, len1, ptr2, len2);
-        deferred4_0 = ret[0];
-        deferred4_1 = ret[1];
+        const ptr3 = passStringToWasm0(libraries, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len3 = WASM_VECTOR_LEN;
+        const ret = wasm.compile(ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3);
+        deferred5_0 = ret[0];
+        deferred5_1 = ret[1];
         return getStringFromWasm0(ret[0], ret[1]);
     } finally {
-        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+        wasm.__wbindgen_free(deferred5_0, deferred5_1, 1);
     }
 }
 
@@ -78,11 +81,12 @@ export function init_panic_hook() {
  * @param {number} cycle_time_us
  * @param {string} dialect
  * @param {string} allows
+ * @param {string} libraries
  * @returns {string}
  */
-export function load_program(source, cycle_time_us, dialect, allows) {
-    let deferred4_0;
-    let deferred4_1;
+export function load_program(source, cycle_time_us, dialect, allows, libraries) {
+    let deferred5_0;
+    let deferred5_1;
     try {
         const ptr0 = passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
@@ -90,12 +94,14 @@ export function load_program(source, cycle_time_us, dialect, allows) {
         const len1 = WASM_VECTOR_LEN;
         const ptr2 = passStringToWasm0(allows, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len2 = WASM_VECTOR_LEN;
-        const ret = wasm.load_program(ptr0, len0, cycle_time_us, ptr1, len1, ptr2, len2);
-        deferred4_0 = ret[0];
-        deferred4_1 = ret[1];
+        const ptr3 = passStringToWasm0(libraries, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len3 = WASM_VECTOR_LEN;
+        const ret = wasm.load_program(ptr0, len0, cycle_time_us, ptr1, len1, ptr2, len2, ptr3, len3);
+        deferred5_0 = ret[0];
+        deferred5_1 = ret[1];
         return getStringFromWasm0(ret[0], ret[1]);
     } finally {
-        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+        wasm.__wbindgen_free(deferred5_0, deferred5_1, 1);
     }
 }
 
@@ -152,11 +158,12 @@ export function run(bytecode_base64, scans) {
  * @param {number} scans
  * @param {string} dialect
  * @param {string} allows
+ * @param {string} libraries
  * @returns {string}
  */
-export function run_source(source, scans, dialect, allows) {
-    let deferred4_0;
-    let deferred4_1;
+export function run_source(source, scans, dialect, allows, libraries) {
+    let deferred5_0;
+    let deferred5_1;
     try {
         const ptr0 = passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
@@ -164,12 +171,14 @@ export function run_source(source, scans, dialect, allows) {
         const len1 = WASM_VECTOR_LEN;
         const ptr2 = passStringToWasm0(allows, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len2 = WASM_VECTOR_LEN;
-        const ret = wasm.run_source(ptr0, len0, scans, ptr1, len1, ptr2, len2);
-        deferred4_0 = ret[0];
-        deferred4_1 = ret[1];
+        const ptr3 = passStringToWasm0(libraries, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len3 = WASM_VECTOR_LEN;
+        const ret = wasm.run_source(ptr0, len0, scans, ptr1, len1, ptr2, len2, ptr3, len3);
+        deferred5_0 = ret[0];
+        deferred5_1 = ret[1];
         return getStringFromWasm0(ret[0], ret[1]);
     } finally {
-        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+        wasm.__wbindgen_free(deferred5_0, deferred5_1, 1);
     }
 }
 

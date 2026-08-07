@@ -189,16 +189,21 @@ function markModified() {
     programModifiedRegistered = true;
     registerSuper({ program_modified: true });
 }
-// A runtime failure (a VM trap, or an infrastructure error like a decode
-// failure) carries the same message/code shape as a compiler diagnostic, so
-// present it as one. Runtime errors have no source location, so the line/column
-// fields are 0 — renderDiagnostics omits the location line when they are.
+// A runtime failure (a VM trap, or a host illegal state like a decode failure)
+// carries the same message/code shape as a compiler diagnostic, so present it as
+// one. Runtime errors have no *program* source location, so the line/column
+// fields are 0 — renderDiagnostics omits the location line when they are. A host
+// illegal state (P9998) instead carries the WASM host's own file/line in
+// compiler_file/compiler_line, exactly as a P9xxx compiler diagnostic does, so
+// it ranks by location on the same reporting path.
 function runErrorToDiagnostic(error) {
     return {
         code: error.code ?? "",
         message: error.message,
         start_line: 0,
         start_column: 0,
+        compiler_file: error.compiler_file,
+        compiler_line: error.compiler_line,
     };
 }
 // A cycle overrun is detected in the front end (not the VM) and has no source
@@ -328,6 +333,65 @@ const allowsParam = (params.get("allows") || "")
     .split(",")
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
+// `libraries` is a comma-separated list of compatibility-library names to
+// activate (e.g. "Tc2_System"), mirroring the CLI `--library` option and a
+// `.plcproj`'s referenced-library list. Each named library's declarations are
+// served alongside the app as plain-text `.st` files; we fetch and load them so
+// their symbols (e.g. `PI`) resolve, without editing the user's source
+// (REQ-CL-playground-001).
+const librariesParam = (params.get("libraries") || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+// The served library sources, once fetched: a JSON array of `.st` file
+// contents ready to hand to the WASM compile path. Empty until fetched (and
+// when no library is activated), which the compiler treats as "no library".
+let activatedLibrarySources = [];
+// Fetch and load the activated libraries' plain-text files. Best-effort: a
+// missing index or file leaves the affected library inactive (its symbols stay
+// undefined and surface as ordinary diagnostics) rather than blocking the app.
+async function loadActivatedLibraries() {
+    if (librariesParam.length === 0) {
+        return;
+    }
+    let index;
+    try {
+        const response = await fetch("libs/index.json");
+        if (!response.ok) {
+            return;
+        }
+        index = (await response.json());
+    }
+    catch {
+        return;
+    }
+    const sources = [];
+    for (const name of librariesParam) {
+        const files = index[name];
+        if (!files) {
+            continue;
+        }
+        for (const path of files) {
+            try {
+                const response = await fetch(path);
+                if (response.ok) {
+                    sources.push(await response.text());
+                }
+            }
+            catch {
+                // Skip a file that fails to load; its symbols stay undefined.
+            }
+        }
+    }
+    activatedLibrarySources = sources;
+}
+// The activated library sources as the WASM compile path expects them: a JSON
+// array of `.st` file contents, or "" when none are active.
+function getLibraries() {
+    return activatedLibrarySources.length > 0
+        ? JSON.stringify(activatedLibrarySources)
+        : "";
+}
 // Populate the dialect picker from the compiler-provided list (via the WASM
 // `dialects()` export), then apply the URL dialect parameter and dialect badge.
 // Called once the worker reports the WASM module is ready.
@@ -457,8 +521,13 @@ worker.onmessage = (e) => {
         compilerVersion = msg.version || "";
         initDialects(msg.dialects);
         initAnalytics();
-        startBtn.disabled = false;
-        statusEl.textContent = "Ready";
+        // Fetch any activated compatibility libraries' served files before enabling
+        // Start, so the first compile already has them. The load is best-effort and
+        // resolves even if a file is missing.
+        void loadActivatedLibraries().finally(() => {
+            startBtn.disabled = false;
+            statusEl.textContent = "Ready";
+        });
         return;
     }
     if (msg.type === "error" && !msg.id) {
@@ -621,7 +690,15 @@ startBtn.addEventListener("click", async () => {
     const allows = getAllows();
     const compileStart = performance.now();
     capture("compile_attempted", { trigger: "manual" });
-    const loadMsg = await postCommand({ command: "load_program", source, cycleTimeUs, dialect, allows });
+    const libraries = getLibraries();
+    const loadMsg = await postCommand({
+        command: "load_program",
+        source,
+        cycleTimeUs,
+        dialect,
+        allows,
+        libraries,
+    });
     const compileDurationMs = performance.now() - compileStart;
     if (loadMsg.type === "error") {
         capture("compile_finished", {
@@ -841,30 +918,30 @@ function renderDiagnostics(diagnostics) {
     let html = "";
     for (const d of diagnostics) {
         html += '<div class="diagnostic-item">';
-        // Infrastructure errors (e.g. a decode failure) carry no code; skip the
-        // code chip rather than render an empty one.
-        if (d.code) {
-            const code = escapeHtml(d.code);
-            // P#### are compiler problems and V#### are runtime (VM) problems; each
-            // has a documentation page under a different section of the reference
-            // site. Codes outside these families render as plain, unlinked chips.
-            const section = /^P\d{4}$/.test(d.code)
-                ? "compiler"
-                : /^V\d{4}$/.test(d.code)
-                    ? "runtime"
-                    : null;
-            if (section) {
-                // channel=playground attributes the arrival to the playground; version
-                // stays for the out-of-date banner in docs/_static/version-check.js.
-                // PostHog captures both as breakdown dimensions via
-                // custom_campaign_params in docs/_static/posthog-init.js.
-                const v = encodeURIComponent(compilerVersion);
-                const url = `https://www.ironplc.com/reference/${section}/problems/${d.code}.html?version=${v}&channel=playground`;
-                html += `<a class="diagnostic-code" href="${url}" target="_blank" rel="noopener">${code}</a>`;
-            }
-            else {
-                html += `<span class="diagnostic-code">${code}</span>`;
-            }
+        // Every diagnostic — compiler, VM trap, or host/embedding-layer error —
+        // now carries a code, so the chip always renders.
+        const code = escapeHtml(d.code);
+        // P#### are compiler problems and V#### are runtime (VM) problems; each has
+        // a documentation page under a different section of the reference site.
+        // Host/embedding-layer illegal states reuse the P9998 internal-error code,
+        // so they link to the compiler section like any other P####. Codes outside
+        // these families render as plain, unlinked chips.
+        const section = /^P\d{4}$/.test(d.code)
+            ? "compiler"
+            : /^V\d{4}$/.test(d.code)
+                ? "runtime"
+                : null;
+        if (section) {
+            // channel=playground attributes the arrival to the playground; version
+            // stays for the out-of-date banner in docs/_static/version-check.js.
+            // PostHog captures both as breakdown dimensions via
+            // custom_campaign_params in docs/_static/posthog-init.js.
+            const v = encodeURIComponent(compilerVersion);
+            const url = `https://www.ironplc.com/reference/${section}/problems/${d.code}.html?version=${v}&channel=playground`;
+            html += `<a class="diagnostic-code" href="${url}" target="_blank" rel="noopener">${code}</a>`;
+        }
+        else {
+            html += `<span class="diagnostic-code">${code}</span>`;
         }
         let message = escapeHtml(d.message);
         if (d.label) {
