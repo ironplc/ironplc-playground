@@ -1,5 +1,14 @@
 {
+  "Tc2_BuiltIns": [
+    "libs/Tc2_BuiltIns/1.0.0/Tc2_BuiltIns.st"
+  ],
+  "Tc2_Math": [
+    "libs/Tc2_Math/1.0.0/Tc2_Math.st"
+  ],
   "Tc2_System": [
     "libs/Tc2_System/1.0.0/Tc2_System.st"
+  ],
+  "Tc2_Utilities": [
+    "libs/Tc2_Utilities/1.0.0/Tc2_Utilities.st"
   ]
 }
