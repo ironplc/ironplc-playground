@@ -5,7 +5,7 @@
     "Garret Fick"
   ],
   "description": "Browser-based compiler and runtime for IronPLC",
-  "version": "0.236.0",
+  "version": "0.238.0",
   "license": "MIT",
   "repository": {
     "type": "git",
