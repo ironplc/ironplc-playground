@@ -754,6 +754,9 @@ startBtn.addEventListener("click", async () => {
     previousValues = new Map();
     valueHistory = new Map();
     lastVariables = null;
+    // A recompile invalidates the previous run's variable indices and charts, so
+    // force a fresh rebuild even if the new program's variable set looks identical.
+    destroyRenderedVariables();
     isRunning = true;
     isPaused = false;
     currentIntervalMs = intervalMs;
@@ -878,40 +881,93 @@ function accumulateHistory(variables) {
         }
     }
 }
-// --- Display helpers ---
-function renderVariables(variables) {
-    if (!variables || variables.length === 0) {
-        variablesPanel.innerHTML = '<p class="placeholder">No variables.</p>';
-        return;
-    }
-    let html = '<table class="var-table"><thead><tr><th>Variable</th><th>Value</th><th>History</th></tr></thead><tbody>';
-    for (const v of variables) {
-        const prev = previousValues.get(v.index);
-        const changed = prev !== undefined && prev !== v.value;
-        html += `<tr${changed ? ' class="changed"' : ''}>`;
-        const label = v.name ? `${escapeHtml(v.name)} : ${escapeHtml(v.type_name)}` : `var[${v.index}]`;
-        const valueClass = v.valid === false ? ' class="value-invalid"' : '';
-        html += `<td>${label}</td><td${valueClass}>${escapeHtml(v.value)}</td>`;
-        html += `<td class="sparkline-cell" data-var-idx="${v.index}"></td>`;
-        html += '</tr>';
-    }
-    html += "</tbody></table>";
-    variablesPanel.innerHTML = html;
-    // Create uPlot sparklines in the empty cells
-    const now = performance.now();
+let renderedRows = new Map();
+let renderedSignature = null;
+// Identity of the variable set — index, name, and type of each variable, in
+// order. Values are deliberately excluded: a value change updates the existing
+// row and chart in place, only a change to this signature triggers a rebuild.
+function variablesSignature(variables) {
+    return variables.map((v) => `${v.index} ${v.name ?? ""} ${v.type_name}`).join("");
+}
+function sparkData(hist, now) {
     const windowStart = now - HISTORY_WINDOW_MS;
+    const xs = hist.map((e) => (e.t - windowStart) / 1000);
+    const ys = hist.map((e) => e.v);
+    return [xs, ys];
+}
+// Destroy all cached uPlot instances and forget the rendered rows. Called
+// before a rebuild and whenever the panel is cleared or a new run begins.
+function destroyRenderedVariables() {
+    for (const rendered of renderedRows.values()) {
+        if (rendered.chart)
+            rendered.chart.destroy();
+    }
+    renderedRows = new Map();
+    renderedSignature = null;
+}
+// Build the table skeleton and register a RenderedRow per variable. Sparkline
+// charts are created lazily by `updateVariables` once history has two points.
+function rebuildVariables(variables) {
+    destroyRenderedVariables();
+    const table = document.createElement("table");
+    table.className = "var-table";
+    table.innerHTML = "<thead><tr><th>Variable</th><th>Value</th><th>History</th></tr></thead>";
+    const tbody = document.createElement("tbody");
     for (const v of variables) {
+        const row = document.createElement("tr");
+        const labelCell = document.createElement("td");
+        labelCell.textContent = v.name ? `${v.name} : ${v.type_name}` : `var[${v.index}]`;
+        const valueCell = document.createElement("td");
+        const sparkCell = document.createElement("td");
+        sparkCell.className = "sparkline-cell";
+        row.append(labelCell, valueCell, sparkCell);
+        tbody.appendChild(row);
+        renderedRows.set(v.index, { row, valueCell, sparkCell, chart: null });
+    }
+    table.appendChild(tbody);
+    variablesPanel.replaceChildren(table);
+    renderedSignature = variablesSignature(variables);
+}
+// Update value text, the changed/invalid classes, and each sparkline in place.
+// A chart is created on the first tick a variable has two history points, then
+// reused via setData on every subsequent tick.
+function updateVariables(variables) {
+    const now = performance.now();
+    for (const v of variables) {
+        const rendered = renderedRows.get(v.index);
+        if (!rendered)
+            continue;
+        const prev = previousValues.get(v.index);
+        rendered.row.classList.toggle("changed", prev !== undefined && prev !== v.value);
+        rendered.valueCell.textContent = v.value;
+        rendered.valueCell.classList.toggle("value-invalid", v.valid === false);
         const hist = valueHistory.get(v.index);
         if (hist && hist.length >= 2) {
-            const cell = variablesPanel.querySelector(`[data-var-idx="${v.index}"]`);
-            if (cell) {
-                const xs = hist.map((e) => (e.t - windowStart) / 1000);
-                const ys = hist.map((e) => e.v);
+            const data = sparkData(hist, now);
+            if (rendered.chart) {
+                rendered.chart.setData(data);
+            }
+            else {
                 const opts = v.type_name.toUpperCase() === "BOOL" ? boolSparkOpts : sparkOpts;
-                new uPlot(opts, [xs, ys], cell);
+                rendered.chart = new uPlot(opts, data, rendered.sparkCell);
             }
         }
     }
+}
+function renderVariables(variables) {
+    if (!variables || variables.length === 0) {
+        destroyRenderedVariables();
+        variablesPanel.innerHTML = '<p class="placeholder">No variables.</p>';
+        previousValues = new Map();
+        return;
+    }
+    // Rebuild the table (and tear down charts) only when the variable set
+    // changes; otherwise reuse the existing DOM and canvases so the 500ms render
+    // loop redraws sparklines instead of reconstructing them each tick.
+    if (variablesSignature(variables) !== renderedSignature) {
+        rebuildVariables(variables);
+    }
+    updateVariables(variables);
     previousValues = new Map(variables.map((v) => [v.index, v.value]));
 }
 function renderDiagnostics(diagnostics) {
