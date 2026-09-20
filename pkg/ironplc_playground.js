@@ -64,6 +64,30 @@ export function dialects() {
 }
 
 /**
+ * Return the problem-code prefix → documentation-section map as a JSON object,
+ * so the front end links a diagnostic's code to the right part of the reference
+ * site without knowing the mapping itself.
+ *
+ * The playground used to test code prefixes with its own regex, which had no
+ * `E####` arm and so disagreed with the compiler. Serving
+ * [`DOCS_SECTIONS`] across the boundary — the same table `docs_section` reads —
+ * leaves one authority for the mapping instead of two that can drift.
+ * @returns {string}
+ */
+export function doc_sections() {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.doc_sections();
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
  * Install a panic hook that logs to `console.error` with a full stack trace.
  *
  * Called once from JavaScript before using any other exports.
